@@ -4,9 +4,8 @@ dist
 dist-ssr
 .git
 
-# Large media files
-public/media/*.mp4
+# Large raw media files
+public/media/jeevuhhhh-birthday-video.mp4
 public/media/*.mov
 public/media/*.avi
 public/media/*.mkv
-*.mp4

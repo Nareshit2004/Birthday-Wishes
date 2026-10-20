@@ -57,7 +57,7 @@ export const siteConfig: SiteConfig = {
   friendshipStartDate: "2023-12-01",
   youtubeUrl: "https://youtu.be/osY54GT0T_8?si=PHY-gDeoibfT642h",
   youtubeId: "osY54GT0T_8",
-  birthdayVideoPath: "/media/jeevuhhhh-birthday-video.mp4",
+  birthdayVideoPath: "/media/jeevuhhhh-birthday-video-web.mp4",
   slideshowIntervalMs: 4500,
 
   audio: {
