@@ -1,0 +1,12 @@
+# Dependencies and builds
+node_modules
+dist
+dist-ssr
+.git
+
+# Large media files
+public/media/*.mp4
+public/media/*.mov
+public/media/*.avi
+public/media/*.mkv
+*.mp4
