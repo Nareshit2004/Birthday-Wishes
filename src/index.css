@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-deep: #09040e;
+    --bg-dark: #12081d;
+    --bg-card: rgba(26, 12, 40, 0.7);
+    --gold-primary: #f5d061;
+    --gold-subtle: #d4af37;
+    --purple-glow: rgba(168, 85, 247, 0.35);
+    --lavender-soft: #e9d5ff;
+    --border-glass: rgba(192, 132, 252, 0.2);
+  }
+
+  body {
+    background-color: var(--bg-deep);
+    color: #f1e8f8;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom Typography Utility Classes */
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-serif-luxury {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-cursive {
+  font-family: 'Great Vibes', cursive;
+}
+
+/* Custom 3D & Luxury Styling */
+.door-perspective {
+  perspective: 1400px;
+  perspective-origin: center center;
+}
+
+.door-leaf-left {
+  transform-origin: left center;
+  transition: transform 2.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-style: preserve-3d;
+}
+
+.door-leaf-right {
+  transform-origin: right center;
+  transition: transform 2.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-style: preserve-3d;
+}
+
+.door-open-left {
+  transform: rotateY(-110deg);
+}
+
+.door-open-right {
+  transform: rotateY(110deg);
+}
+
+/* Luxury Gold & Purple Gradients */
+.gold-text-gradient {
+  background: linear-gradient(135deg, #fff3c4 0%, #f5d061 40%, #e6a817 70%, #fff6d9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.purple-text-gradient {
+  background: linear-gradient(135deg, #f5f3ff 0%, #d8b4fe 40%, #c084fc 70%, #f3e8ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-border-glow {
+  border: 1px solid rgba(245, 208, 97, 0.3);
+  box-shadow: 0 0 25px rgba(245, 208, 97, 0.12), inset 0 0 15px rgba(245, 208, 97, 0.05);
+}
+
+.purple-glass-card {
+  background: linear-gradient(135deg, rgba(30, 14, 46, 0.75) 0%, rgba(18, 8, 30, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(192, 132, 252, 0.18);
+  box-shadow: 0 20px 50px rgba(7, 2, 14, 0.6), 0 0 30px rgba(168, 85, 247, 0.08);
+}
+
+/* Vinyl rotation animation */
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 3.5s ease-in-out infinite;
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.03);
+  }
+}
+
+/* Shimmer animation for ribbons and special buttons */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-btn {
+  background: linear-gradient(90deg, #9333ea 0%, #c084fc 25%, #f5d061 50%, #c084fc 75%, #9333ea 100%);
+  background-size: 200% 100%;
+  animation: shimmer 4s infinite linear;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0615;
+}
+::-webkit-scrollbar-thumb {
+  background: #3b1d5c;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #5b2d8e;
+}
+
+/* Mobile safe area insets & touch optimization */
+.pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+button, input, a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Reduce motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
