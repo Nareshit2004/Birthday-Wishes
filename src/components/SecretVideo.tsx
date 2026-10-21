@@ -144,7 +144,7 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
         }, 150);
       }, 700);
     } else {
-      setErrorMessage("Incorrect passkey. Hint: Vairooowww2112 💎 (or Jeevuhhhh)");
+      setErrorMessage("Incorrect passkey. Please check the secret code and try again.");
     }
   };
 
@@ -503,7 +503,7 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
                           setPasswordInput(e.target.value);
                           if (errorMessage) setErrorMessage('');
                         }}
-                        placeholder="Enter passkey (e.g. Vairooowww2112)..."
+                        placeholder="Enter passkey..."
                         className="w-full h-12 px-4 pr-11 rounded-xl bg-purple-950/70 border border-purple-500/40 text-purple-100 placeholder-purple-400/40 focus:outline-none focus:border-amber-300 text-sm shadow-inner"
                         autoComplete="off"
                         autoCapitalize="none"
