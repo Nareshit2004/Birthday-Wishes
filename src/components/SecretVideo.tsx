@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, RotateCcw, Maximize, Eye, EyeOff, AlertCircle, Sparkles, Play, Pause, ExternalLink, Activity, Info } from 'lucide-react';
+import { Lock, RotateCcw, Maximize, Eye, EyeOff, AlertCircle, Sparkles, Play, Pause, ExternalLink, Activity, Info, VolumeX } from 'lucide-react';
 import { soundFX } from '../utils/soundEffects';
 import { audioManager } from '../utils/audioManager';
 import { DiamondGem } from './DiamondGem';
@@ -52,6 +52,7 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
   
   const [isUnlockingAnim, setIsUnlockingAnim] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
@@ -166,19 +167,25 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
   }, [isUnlocked, videoSrc]);
 
   // Direct user-gesture playback handler
-  const handleExplicitPlay = () => {
+  const handlePlayMyVideo = () => {
     if (!videoRef.current) return;
     const v = videoRef.current;
 
     setPlaybackError(null);
 
+    // 1. Pause background music first to eliminate audio conflicts on mobile devices
+    audioManager.pauseBackgroundMusic('youtube');
+
     if (v.paused) {
+      setDiagnostics(prev => ({ ...prev, playbackStatus: 'play() initiated by user' }));
+
+      // Attempt unmuted play first
       const promise = v.play();
       if (promise !== undefined) {
-        setDiagnostics(prev => ({ ...prev, playbackStatus: 'play() pending' }));
         promise
           .then(() => {
             setIsPlaying(true);
+            setIsMuted(v.muted);
             setDiagnostics(prev => ({
               ...prev,
               playbackStatus: 'playing',
@@ -187,17 +194,31 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
             }));
           })
           .catch((err: Error) => {
-            console.error("Playback error:", err);
-            const msg = err.name === 'NotAllowedError'
-              ? 'Mobile browser required a direct tap. Please tap the video to play.'
-              : `Playback error: ${err.message}`;
-            setPlaybackError(msg);
-            setDiagnostics(prev => ({
-              ...prev,
-              playbackStatus: 'play-rejected',
-              errorMessage: err.message,
-              lastEvent: 'play-rejected',
-            }));
+            console.warn("Direct unmuted play blocked, attempting fallback muted play:", err);
+            // Fallback for strict mobile browsers: start muted, allow 1-tap unmute
+            v.muted = true;
+            v.play()
+              .then(() => {
+                setIsPlaying(true);
+                setIsMuted(true);
+                setDiagnostics(prev => ({
+                  ...prev,
+                  playbackStatus: 'playing (muted fallback)',
+                  lastEvent: 'play-muted-resolved',
+                  readyState: v.readyState,
+                }));
+              })
+              .catch((fallbackErr: Error) => {
+                console.error("Playback failed completely:", fallbackErr);
+                const msg = `Playback could not start: ${fallbackErr.message || err.message}`;
+                setPlaybackError(msg);
+                setDiagnostics(prev => ({
+                  ...prev,
+                  playbackStatus: 'play-rejected',
+                  errorMessage: fallbackErr.message,
+                  lastEvent: 'play-rejected',
+                }));
+              });
           });
       }
     } else {
@@ -207,10 +228,19 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
     }
   };
 
+  const handleToggleMute = () => {
+    if (!videoRef.current) return;
+    const v = videoRef.current;
+    v.muted = !v.muted;
+    setIsMuted(v.muted);
+  };
+
   const handleReplay = () => {
     if (!videoRef.current) return;
-    videoRef.current.currentTime = 0;
-    videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    const v = videoRef.current;
+    audioManager.pauseBackgroundMusic('youtube');
+    v.currentTime = 0;
+    v.play().then(() => setIsPlaying(true)).catch(() => {});
   };
 
   const handleFullscreen = () => {
@@ -288,7 +318,7 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
           /* Unlocked Responsive Video Player with Native Mobile Controls */
           <div className="w-full flex flex-col items-center animate-fadeIn">
             <div className="w-full max-w-sm mx-auto relative rounded-2xl overflow-hidden bg-black border-2 border-amber-300/50 shadow-[0_0_35px_rgba(217,119,6,0.25)]">
-              {/* Responsive Video Element (Width 100%, Height Auto, Mobile Aspect Ratio) */}
+              {/* Responsive Video Element (Width 100%, Height Auto, Mobile 9:16 Aspect Ratio) */}
               <video
                 ref={videoRef}
                 src={videoSrc || undefined}
@@ -372,6 +402,17 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
                   <Maximize className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Audio Mute Indicator badge if playing muted */}
+              {isPlaying && isMuted && (
+                <div
+                  onClick={handleToggleMute}
+                  className="absolute bottom-14 left-3 z-10 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-amber-300/40 text-amber-200 text-xs flex items-center gap-1.5 cursor-pointer shadow-lg animate-pulse"
+                >
+                  <VolumeX className="w-3.5 h-3.5" />
+                  <span>Tap to Unmute 🔊</span>
+                </div>
+              )}
             </div>
 
             {/* Playback Error Alert if any */}
@@ -384,12 +425,12 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
               </div>
             )}
 
-            {/* Prominent Direct Play Button (User Gesture) */}
+            {/* Clear, Mobile-Friendly Play My Video Button */}
             <div className="w-full max-w-sm mt-4 flex flex-col gap-2">
               <button
                 type="button"
-                onClick={handleExplicitPlay}
-                className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-purple-950 font-cinzel font-bold text-xs sm:text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                onClick={handlePlayMyVideo}
+                className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-purple-950 font-cinzel font-bold text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isPlaying ? (
                   <>
@@ -399,7 +440,7 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-current" />
-                    <span>Play Birthday Video 🎬</span>
+                    <span>Play My Video 🎬</span>
                   </>
                 )}
               </button>

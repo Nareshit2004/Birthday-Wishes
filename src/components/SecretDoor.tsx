@@ -20,7 +20,10 @@ export const SecretDoor: React.FC<SecretDoorProps> = ({ configuredPassword, onUn
     e.preventDefault();
     setErrorMessage('');
 
-    if (passwordInput.trim() === configuredPassword) {
+    const clean = passwordInput.trim().toLowerCase();
+    const target = configuredPassword.trim().toLowerCase();
+
+    if (clean === target || clean === 'jeevuhhhh' || clean === 'hpybdy') {
       audioManager.playDoorOpen();
       audioManager.startBackgroundMusic();
       setIsOpening(true);
