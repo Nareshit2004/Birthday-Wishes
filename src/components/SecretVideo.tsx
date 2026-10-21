@@ -1,38 +1,39 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Lock, RotateCcw, Maximize, Eye, EyeOff, AlertCircle, Sparkles, Play, Pause, ExternalLink, Activity, Info, VolumeX } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Sparkles,
+  ExternalLink,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  Film,
+} from 'lucide-react';
 import { soundFX } from '../utils/soundEffects';
 import { audioManager } from '../utils/audioManager';
 import { DiamondGem } from './DiamondGem';
 
 interface SecretVideoProps {
   configuredPassword: string;
-  videoPath: string;
-}
-
-interface DiagnosticsInfo {
-  passwordVerified: boolean;
-  playerVisible: boolean;
-  assignedSrc: string | null;
-  resolvedCurrentSrc: string;
-  readyState: number;
-  networkState: number;
-  lastEvent: string;
-  errorCode: number | null;
-  errorMessage: string | null;
-  playbackStatus: string;
-  networkHttpStatus: number | null;
+  videoPath?: string;
+  driveEmbedUrl?: string;
+  driveDirectUrl?: string;
 }
 
 export const SecretVideo: React.FC<SecretVideoProps> = ({
   configuredPassword,
-  videoPath,
+  videoPath = '/media/jeevuhhhh-birthday-video-web.mp4',
+  driveEmbedUrl = 'https://drive.google.com/file/d/1KGjovNkj2468mQy4EtEHu6_IphIRlDpE/preview',
+  driveDirectUrl = 'https://drive.google.com/file/d/1KGjovNkj2468mQy4EtEHu6_IphIRlDpE/view?usp=sharing',
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
-  // Persistent unlock state - only assign video source after unlocking
+
+  // Persistent unlock state - only render iframe after unlocking
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     try {
       return localStorage.getItem('jeevuhhhh_video_unlocked') === 'true';
@@ -41,71 +42,36 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
     }
   });
 
-  // Source is only assigned after successful unlocking
-  const [videoSrc, setVideoSrc] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('jeevuhhhh_video_unlocked') === 'true' ? videoPath : null;
-    } catch {
-      return null;
-    }
-  });
-  
   const [isUnlockingAnim, setIsUnlockingAnim] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackError, setPlaybackError] = useState<string | null>(null);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  // Diagnostics tracking
-  const [diagnostics, setDiagnostics] = useState<DiagnosticsInfo>({
-    passwordVerified: isUnlocked,
-    playerVisible: isUnlocked,
-    assignedSrc: videoSrc,
-    resolvedCurrentSrc: '',
-    readyState: 0,
-    networkState: 0,
-    lastEvent: 'initialized',
-    errorCode: null,
-    errorMessage: null,
-    playbackStatus: 'idle',
-    networkHttpStatus: null,
-  });
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [iframeKey, setIframeKey] = useState(0);
+  const [isBgMusicPaused, setIsBgMusicPaused] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Validate password leniently to prevent getting locked out due to mobile keyboard quirks
+  // Validate password leniently to prevent getting locked out due to mobile keyboard autocorrect
   const isValidPasskey = (input: string) => {
     const clean = input.trim().toLowerCase();
     const target = configuredPassword.trim().toLowerCase();
-    
+
     // Direct match (case-insensitive)
     if (clean === target) return true;
-    
+
     // Match variations of 'vairooowww2112' (different count of o's and w's)
     if (/^vair+o+w+2112$/i.test(clean)) return true;
-    
-    // Allow special friendship identifiers
-    if (clean === 'jeevuhhhh' || clean === 'diamond' || clean === '2112' || clean === 'chapter22' || clean === 'hpybdy') return true;
-    
-    return false;
-  };
 
-  // Perform network diagnostic check on the deployed video asset
-  const checkAssetNetwork = async (url: string) => {
-    try {
-      const response = await fetch(url, { method: 'HEAD' });
-      setDiagnostics(prev => ({
-        ...prev,
-        networkHttpStatus: response.status,
-      }));
-    } catch (e: any) {
-      setDiagnostics(prev => ({
-        ...prev,
-        networkHttpStatus: 0,
-        errorMessage: 'Network check failed: ' + (e?.message || 'Unknown network error'),
-      }));
+    // Allow special friendship identifiers
+    if (
+      clean === 'jeevuhhhh' ||
+      clean === 'diamond' ||
+      clean === '2112' ||
+      clean === 'chapter22' ||
+      clean === 'hpybdy'
+    ) {
+      return true;
     }
+
+    return false;
   };
 
   const handleUnlockAttempt = (e: React.FormEvent) => {
@@ -116,10 +82,13 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
       soundFX.playUnlockChord();
       setIsUnlockingAnim(true);
 
-      // Successfully verified: update state and assign private video source
+      // Pause background music so the video's audio is crystal clear
+      audioManager.pauseBackgroundMusic('youtube');
+      setIsBgMusicPaused(true);
+
       setTimeout(() => {
         setIsUnlocked(true);
-        setVideoSrc(videoPath);
+        setIsIframeLoading(true);
         setIsModalOpen(false);
         setIsUnlockingAnim(false);
 
@@ -129,131 +98,29 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
           // ignore
         }
 
-        setDiagnostics(prev => ({
-          ...prev,
-          passwordVerified: true,
-          playerVisible: true,
-          assignedSrc: videoPath,
-          lastEvent: 'unlocked',
-        }));
-
-        checkAssetNetwork(videoPath);
-
-        // Scroll player smoothly into view on mobile
+        // Smooth scroll to player on mobile
         setTimeout(() => {
           containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 150);
+        }, 200);
       }, 700);
     } else {
-      setErrorMessage("Incorrect passkey. Please check the secret code and try again.");
+      setErrorMessage('Incorrect passkey. Please check the secret code and try again.');
     }
   };
 
-  // Load video explicitly when source changes or component mounts in unlocked state
-  useEffect(() => {
-    if (isUnlocked && videoSrc && videoRef.current) {
-      const v = videoRef.current;
-      v.load();
-      checkAssetNetwork(videoSrc);
-
-      setDiagnostics(prev => ({
-        ...prev,
-        resolvedCurrentSrc: v.currentSrc || v.src,
-        readyState: v.readyState,
-        networkState: v.networkState,
-        lastEvent: 'video.load() called',
-      }));
-    }
-  }, [isUnlocked, videoSrc]);
-
-  // Direct user-gesture playback handler
-  const handlePlayMyVideo = () => {
-    if (!videoRef.current) return;
-    const v = videoRef.current;
-
-    setPlaybackError(null);
-
-    // 1. Pause background music first to eliminate audio conflicts on mobile devices
-    audioManager.pauseBackgroundMusic('youtube');
-
-    if (v.paused) {
-      setDiagnostics(prev => ({ ...prev, playbackStatus: 'play() initiated by user' }));
-
-      // Attempt unmuted play first
-      const promise = v.play();
-      if (promise !== undefined) {
-        promise
-          .then(() => {
-            setIsPlaying(true);
-            setIsMuted(v.muted);
-            setDiagnostics(prev => ({
-              ...prev,
-              playbackStatus: 'playing',
-              lastEvent: 'play-resolved',
-              readyState: v.readyState,
-            }));
-          })
-          .catch((err: Error) => {
-            console.warn("Direct unmuted play blocked, attempting fallback muted play:", err);
-            // Fallback for strict mobile browsers: start muted, allow 1-tap unmute
-            v.muted = true;
-            v.play()
-              .then(() => {
-                setIsPlaying(true);
-                setIsMuted(true);
-                setDiagnostics(prev => ({
-                  ...prev,
-                  playbackStatus: 'playing (muted fallback)',
-                  lastEvent: 'play-muted-resolved',
-                  readyState: v.readyState,
-                }));
-              })
-              .catch((fallbackErr: Error) => {
-                console.error("Playback failed completely:", fallbackErr);
-                const msg = `Playback could not start: ${fallbackErr.message || err.message}`;
-                setPlaybackError(msg);
-                setDiagnostics(prev => ({
-                  ...prev,
-                  playbackStatus: 'play-rejected',
-                  errorMessage: fallbackErr.message,
-                  lastEvent: 'play-rejected',
-                }));
-              });
-          });
-      }
+  const handleToggleBgMusic = () => {
+    if (isBgMusicPaused) {
+      audioManager.resumeFromYoutube();
+      setIsBgMusicPaused(false);
     } else {
-      v.pause();
-      setIsPlaying(false);
-      setDiagnostics(prev => ({ ...prev, playbackStatus: 'paused', lastEvent: 'pause' }));
+      audioManager.pauseBackgroundMusic('youtube');
+      setIsBgMusicPaused(true);
     }
   };
 
-  const handleToggleMute = () => {
-    if (!videoRef.current) return;
-    const v = videoRef.current;
-    v.muted = !v.muted;
-    setIsMuted(v.muted);
-  };
-
-  const handleReplay = () => {
-    if (!videoRef.current) return;
-    const v = videoRef.current;
-    audioManager.pauseBackgroundMusic('youtube');
-    v.currentTime = 0;
-    v.play().then(() => setIsPlaying(true)).catch(() => {});
-  };
-
-  const handleFullscreen = () => {
-    const v = videoRef.current as any;
-    if (!v) return;
-    if (v.requestFullscreen) {
-      v.requestFullscreen().catch(() => {});
-    } else if (v.webkitEnterFullscreen) {
-      // iOS Safari native fullscreen method
-      v.webkitEnterFullscreen();
-    } else if (v.webkitRequestFullscreen) {
-      v.webkitRequestFullscreen();
-    }
+  const handleReloadPlayer = () => {
+    setIsIframeLoading(true);
+    setIframeKey((prev) => prev + 1);
   };
 
   const handleLockReset = () => {
@@ -263,14 +130,17 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
       // ignore
     }
     setIsUnlocked(false);
-    setVideoSrc(null);
-    setIsPlaying(false);
-    setPlaybackError(null);
     setPasswordInput('');
+    setIsIframeLoading(true);
+    audioManager.resumeFromYoutube();
+    setIsBgMusicPaused(false);
   };
 
   return (
-    <section ref={containerRef} className="relative my-14 sm:my-20 px-3 sm:px-4 max-w-2xl mx-auto z-10 overflow-hidden">
+    <section
+      ref={containerRef}
+      className="relative my-14 sm:my-20 px-3 sm:px-4 max-w-2xl mx-auto z-10 overflow-hidden"
+    >
       <div className="rounded-2xl purple-glass-card p-4 sm:p-8 border border-purple-400/25 shadow-[0_20px_50px_rgba(7,2,14,0.85)] relative overflow-hidden">
         {/* Section Header */}
         <div className="text-center mb-6">
@@ -315,145 +185,110 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
             </span>
           </div>
         ) : (
-          /* Unlocked Responsive Video Player with Native Mobile Controls */
+          /* Unlocked Responsive Google Drive Video Player */
           <div className="w-full flex flex-col items-center animate-fadeIn">
-            <div className="w-full max-w-sm mx-auto relative rounded-2xl overflow-hidden bg-black border-2 border-amber-300/50 shadow-[0_0_35px_rgba(217,119,6,0.25)]">
-              {/* Responsive Video Element (Width 100%, Height Auto, Mobile 9:16 Aspect Ratio) */}
-              <video
-                ref={videoRef}
-                src={videoSrc || undefined}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full h-auto max-h-[72vh] object-contain bg-black block"
-                style={{ aspectRatio: '9/16' }}
-                onLoadStart={() => {
-                  setDiagnostics(prev => ({
-                    ...prev,
-                    lastEvent: 'loadstart',
-                    resolvedCurrentSrc: videoRef.current?.currentSrc || '',
-                  }));
-                }}
-                onLoadedMetadata={() => {
-                  setDiagnostics(prev => ({
-                    ...prev,
-                    lastEvent: 'loadedmetadata',
-                    readyState: videoRef.current?.readyState || 0,
-                  }));
-                }}
-                onCanPlay={() => {
-                  setDiagnostics(prev => ({
-                    ...prev,
-                    lastEvent: 'canplay',
-                    readyState: videoRef.current?.readyState || 0,
-                  }));
-                }}
-                onPlay={() => {
-                  setIsPlaying(true);
-                  setPlaybackError(null);
-                  audioManager.pauseBackgroundMusic('youtube');
-                  setDiagnostics(prev => ({ ...prev, playbackStatus: 'playing', lastEvent: 'play' }));
-                }}
-                onPause={() => {
-                  setIsPlaying(false);
-                  audioManager.resumeFromYoutube();
-                  setDiagnostics(prev => ({ ...prev, playbackStatus: 'paused', lastEvent: 'pause' }));
-                }}
-                onEnded={() => {
-                  setIsPlaying(false);
-                  audioManager.resumeFromYoutube();
-                  setDiagnostics(prev => ({ ...prev, playbackStatus: 'ended', lastEvent: 'ended' }));
-                }}
-                onStalled={() => {
-                  setDiagnostics(prev => ({ ...prev, lastEvent: 'stalled' }));
-                }}
-                onError={() => {
-                  const mediaError = videoRef.current?.error;
-                  const code = mediaError?.code ?? null;
-                  const message = mediaError?.message || 'Media decode or network error';
-                  setDiagnostics(prev => ({
-                    ...prev,
-                    lastEvent: 'error',
-                    errorCode: code,
-                    errorMessage: message,
-                  }));
-                  setPlaybackError(`Video player encountered an error (Code ${code || 'unknown'}). Tap the direct link below to play.`);
-                }}
-              >
-                Your mobile browser does not support inline video. Please tap the direct link below.
-              </video>
-
-              {/* Quick Action Overlay Buttons for Desktop / High-res Screens */}
-              <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10 bg-black/70 backdrop-blur-sm p-1 rounded-lg">
-                <button
-                  type="button"
-                  onClick={handleReplay}
-                  className="p-1.5 rounded text-purple-200 hover:text-amber-300 transition-colors"
-                  aria-label="Replay video"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleFullscreen}
-                  className="p-1.5 rounded text-purple-200 hover:text-amber-300 transition-colors"
-                  aria-label="Fullscreen"
-                >
-                  <Maximize className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Audio Mute Indicator badge if playing muted */}
-              {isPlaying && isMuted && (
-                <div
-                  onClick={handleToggleMute}
-                  className="absolute bottom-14 left-3 z-10 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-amber-300/40 text-amber-200 text-xs flex items-center gap-1.5 cursor-pointer shadow-lg animate-pulse"
-                >
-                  <VolumeX className="w-3.5 h-3.5" />
-                  <span>Tap to Unmute 🔊</span>
-                </div>
-              )}
-            </div>
-
-            {/* Playback Error Alert if any */}
-            {playbackError && (
-              <div className="w-full max-w-sm mt-3 p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">{playbackError}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Clear, Mobile-Friendly Play My Video Button */}
-            <div className="w-full max-w-sm mt-4 flex flex-col gap-2">
+            {/* Background Audio Status Pill */}
+            <div className="w-full max-w-sm mb-3 flex items-center justify-between px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-500/30 text-purple-200 text-xs">
+              <span className="flex items-center gap-1.5">
+                <Film className="w-3.5 h-3.5 text-amber-300" />
+                <span className="font-cinzel text-[11px] text-amber-200">Chapter 22 Video Player</span>
+              </span>
               <button
                 type="button"
-                onClick={handlePlayMyVideo}
-                className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-purple-950 font-cinzel font-bold text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                onClick={handleToggleBgMusic}
+                className="flex items-center gap-1 text-[11px] hover:text-amber-300 text-purple-300 cursor-pointer underline"
               >
-                {isPlaying ? (
+                {isBgMusicPaused ? (
                   <>
-                    <Pause className="w-4 h-4 fill-current" />
-                    <span>Pause Video</span>
+                    <VolumeX className="w-3 h-3 text-amber-400" />
+                    <span>Music Paused (Resume)</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Play My Video 🎬</span>
+                    <Volume2 className="w-3 h-3 text-purple-300" />
+                    <span>Pause Music</span>
                   </>
                 )}
               </button>
+            </div>
 
-              {/* Direct Fullscreen Link & Re-lock controls */}
+            {/* Video Frame Container - 9:16 mobile aspect ratio */}
+            <div className="w-full max-w-sm mx-auto relative rounded-2xl overflow-hidden bg-black border-2 border-amber-300/50 shadow-[0_0_35px_rgba(217,119,6,0.3)] aspect-[9/16] min-h-[480px] sm:min-h-[560px]">
+              {/* Animated Loading Overlay while Google Drive initializes */}
+              {isIframeLoading && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-[#0c0414] text-center">
+                  <div className="relative mb-4">
+                    <div className="w-14 h-14 rounded-full border-2 border-purple-500/30 border-t-amber-300 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <DiamondGem size={22} glow={true} />
+                    </div>
+                  </div>
+                  <h4 className="font-cinzel text-base text-amber-200 font-bold mb-1">
+                    Connecting to Video Vault... 💎
+                  </h4>
+                  <p className="font-serif-luxury italic text-purple-300/80 text-xs max-w-xs">
+                    Loading your personalized Chapter 22 birthday video.
+                  </p>
+                </div>
+              )}
+
+              {/* Top-Right Quick Action Toolbar */}
+              <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1.5 bg-black/75 backdrop-blur-md p-1 rounded-lg border border-purple-500/30">
+                <button
+                  type="button"
+                  onClick={handleReloadPlayer}
+                  className="p-1.5 rounded text-purple-200 hover:text-amber-300 transition-colors"
+                  title="Reload Video"
+                  aria-label="Reload Video"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <a
+                  href={driveDirectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded text-purple-200 hover:text-amber-300 transition-colors"
+                  title="Open directly in Google Drive"
+                  aria-label="Open in Google Drive"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              {/* The Google Drive Embedded Preview Iframe */}
+              <iframe
+                key={iframeKey}
+                src={driveEmbedUrl}
+                title="For My Jeevuhhhh — Chapter 22 Birthday Video"
+                className="w-full h-full border-0 rounded-2xl bg-black"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                loading="eager"
+                onLoad={() => setIsIframeLoading(false)}
+              />
+            </div>
+
+            {/* Direct Open in Drive CTA & Support Actions */}
+            <div className="w-full max-w-sm mt-4 flex flex-col gap-2.5">
+              <a
+                href={driveDirectUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-purple-950 font-cinzel font-bold text-xs sm:text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,0.4)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+              >
+                <ExternalLink className="w-4 h-4 text-purple-950" />
+                <span>Open in Google Drive App 🎬</span>
+              </a>
+
+              {/* Helpful tip & Re-lock control */}
               <div className="flex items-center justify-between text-xs text-purple-300/80 px-1 pt-1">
                 <a
                   href={videoPath}
                   target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-amber-300 underline font-cinzel"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 hover:text-amber-300 underline font-cinzel text-[11px]"
                 >
-                  <span>Open in Native Fullscreen Player</span>
+                  <span>Alternative Video Stream</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
 
@@ -462,43 +297,15 @@ export const SecretVideo: React.FC<SecretVideoProps> = ({
                   onClick={handleLockReset}
                   className="hover:text-purple-100 text-[11px] underline cursor-pointer"
                 >
-                  Re-lock Vault
+                  Re-lock Vault 🔐
                 </button>
               </div>
 
-              {/* Diagnostics Toggle */}
-              <div className="mt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowDiagnostics(!showDiagnostics)}
-                  className="inline-flex items-center gap-1 text-[11px] text-purple-400/60 hover:text-purple-300 cursor-pointer"
-                >
-                  <Activity className="w-3 h-3" />
-                  <span>{showDiagnostics ? 'Hide Diagnostics' : 'Show Video Diagnostics'}</span>
-                </button>
+              <div className="mt-1 p-2.5 rounded-xl bg-purple-950/50 border border-purple-500/20 text-purple-300/70 text-[11px] text-center font-serif-luxury italic">
+                <span>
+                  💡 If preview requests sign-in, tap &ldquo;Open in Google Drive App&rdquo; above to play immediately on mobile.
+                </span>
               </div>
-
-              {/* Development & Diagnostics Panel */}
-              {showDiagnostics && (
-                <div className="mt-2 p-3 rounded-xl bg-purple-950/80 border border-purple-500/30 text-[10px] font-mono text-purple-200 text-left space-y-1">
-                  <div className="flex items-center gap-1 font-bold text-amber-300 text-xs mb-1">
-                    <Info className="w-3.5 h-3.5" />
-                    <span>Video Diagnostics Status</span>
-                  </div>
-                  <div>• Password Verified: {diagnostics.passwordVerified ? 'Yes (Valid)' : 'No'}</div>
-                  <div>• Player Visible: {diagnostics.playerVisible ? 'Yes' : 'No'}</div>
-                  <div>• Assigned Source: {diagnostics.assignedSrc || 'None'}</div>
-                  <div>• Current Source: {diagnostics.resolvedCurrentSrc || '(loading)'}</div>
-                  <div>• Ready State: {diagnostics.readyState} (4 = Ready)</div>
-                  <div>• Network State: {diagnostics.networkState}</div>
-                  <div>• Last Media Event: {diagnostics.lastEvent}</div>
-                  <div>• Playback Status: {diagnostics.playbackStatus}</div>
-                  <div>• HTTP Status: {diagnostics.networkHttpStatus ?? 'Checking...'}</div>
-                  {diagnostics.errorCode !== null && (
-                    <div className="text-rose-400">• Error Code: {diagnostics.errorCode} ({diagnostics.errorMessage})</div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         )}

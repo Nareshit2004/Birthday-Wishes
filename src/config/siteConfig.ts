@@ -41,6 +41,9 @@ export interface SiteConfig {
   youtubeUrl: string;
   youtubeId: string;
   birthdayVideoPath: string;
+  googleDriveVideoId: string;
+  googleDriveEmbedUrl: string;
+  googleDriveDirectUrl: string;
   slideshowIntervalMs: number;
   gallery: GalleryItem[];
   wishes: WishItem[];
@@ -58,6 +61,9 @@ export const siteConfig: SiteConfig = {
   youtubeUrl: "https://youtu.be/osY54GT0T_8?si=PHY-gDeoibfT642h",
   youtubeId: "osY54GT0T_8",
   birthdayVideoPath: "/media/jeevuhhhh-birthday-video-web.mp4",
+  googleDriveVideoId: "1KGjovNkj2468mQy4EtEHu6_IphIRlDpE",
+  googleDriveEmbedUrl: "https://drive.google.com/file/d/1KGjovNkj2468mQy4EtEHu6_IphIRlDpE/preview",
+  googleDriveDirectUrl: "https://drive.google.com/file/d/1KGjovNkj2468mQy4EtEHu6_IphIRlDpE/view?usp=sharing",
   slideshowIntervalMs: 4500,
 
   audio: {

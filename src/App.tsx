@@ -87,6 +87,8 @@ export function App() {
           <SecretVideo
             configuredPassword={siteConfig.videoPassword}
             videoPath={siteConfig.birthdayVideoPath}
+            driveEmbedUrl={siteConfig.googleDriveEmbedUrl}
+            driveDirectUrl={siteConfig.googleDriveDirectUrl}
           />
 
           {/* Closing Scene with Shared Symbols */}
